@@ -13,7 +13,59 @@ todo
 
 ## Training & Evaluation
 
-todo
+1. Prepare the frozen text caption bank.
+
+   ```bash
+   python tools.prepare_caption_bank.py
+   ```
+
+2. Train the dense degradation representation encoder.
+
+   ```bash
+   python tools.train_dr.py
+   ```
+
+3. Extract dense degradation features and per-image GAP vectors.
+
+   ```bash
+   python tools.extract_dr.py
+   ```
+
+4. Build the hierarchical degradation clusters.
+
+   ```bash
+   python tools.hierarchical_clustering.py
+   ```
+
+5. Train the Restormer base on all paired training data.
+
+   ```bash
+   python tools.train_base.py
+   ```
+
+6. Train one LoRA expert per non-root cluster on the frozen shared base.
+
+   ```bash
+   python tools.train_cluster_lora.py
+   ```
+
+7. Assemble the base, cluster LoRA experts and DR encoder into a restoration checkpoint.
+
+   ```bash
+   python tools.assemble_cluster_lora.py
+   ```
+
+8. Initialize DER with CE on true-leaf expert features; variance has no CE gradient.
+
+   ```bash
+   python tools.train_der.py
+   ```
+
+9. Jointly train DER, GER, both phi heads and LoRA with restoration, DG and level-balance losses.
+
+   ```bash
+   python tools.train_joint.py
+   ```
 
 ## Acknowledgement
 

@@ -12,7 +12,7 @@ from basicsr.dr_training.text import file_sha256, load_frozen_clip_text_encoder
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = {
     "captions_csv": "data/captions_input.csv",  # caption_id,caption
-    "output_dir": "outputs/caption_bank_run1",
+    "output_dir": "outputs/caption_bank",
     "model_name": "ViT-B-32",
     "checkpoint": "checkpoints/clip_ViT-B-32.pt",  # Existing local weights.
     "checkpoint_format": "state_dict",  # Or explicitly trusted-local torchscript.
