@@ -63,7 +63,7 @@ class UniRestorerPP(nn.Module):
         bias: bool = False,
         LayerNorm_type: str = "BiasFree", 
         dual_pixel_task: bool = False,
-        p: int = 256, 
+        p: int = 512,
         router_hidden_channels: int = 256,
         rank: int = 8, 
         lora_alpha: Optional[float] = None,
@@ -191,7 +191,11 @@ class UniRestorerPP(nn.Module):
         return state
 
     def parameter_counts(self) -> Dict[str, Dict[str, int]]:
-        """Count distinct Parameters by role; shared frozen bases count once."""
+        """Count restoration base and LoRA A/B Parameters, shared bases once.
+
+        Both total and trainable exclude DR, phi, routers and other parameters.
+        Trainable counts reflect the selected Parameters' current requires_grad.
+        """
         base_ids = set()
         for name, module in self.backbone.named_children():
             base_modules = (block.base_block for block in module) if name in self.stage_names else (module,)
@@ -199,20 +203,16 @@ class UniRestorerPP(nn.Module):
                 base_ids.update(id(value) for value in base_module.parameters())
         group_ids = {
             "base": frozenset(base_ids),
-            "dr": frozenset(id(value) for value in self.degradation_prior.dr_encoder.parameters()),
-            "phi": frozenset(id(value) for head in (
-                self.degradation_prior.phi_mu, self.degradation_prior.phi_rawvar
-            ) for value in head.parameters()),
-            "router": frozenset(id(value) for _, block in self.routed_blocks()
-                                for value in block.router.parameters()),
-            "lora": frozenset(id(value) for module in self.modules()
+            "lora": frozenset(id(value) for module in self.backbone.modules()
                               if isinstance(module, LoRAConv2dResidual)
-                              for value in module.parameters(recurse=False)),
+                              for value in (module.lora_A, module.lora_B)),
         }
-        counts = {name: {"total": 0, "trainable": 0} for name in
-                  ("base", "lora", "dr", "phi", "router", "other", "total")}
-        for parameter in self.parameters():
-            owner = next((name for name, ids in group_ids.items() if id(parameter) in ids), "other")
+        counts = {name: {"total": 0, "trainable": 0} for name in ("base", "lora", "total")}
+        # Module.parameters() deduplicates shared Parameter objects by identity.
+        for parameter in self.backbone.parameters():
+            owner = next((name for name, ids in group_ids.items() if id(parameter) in ids), None)
+            if owner is None:
+                continue
             size = parameter.numel()
             counts[owner]["total"] += size
             counts["total"]["total"] += size
@@ -247,7 +247,10 @@ class UniRestorerPP(nn.Module):
         if pad_h or pad_w:
             padding_mode = "reflect" if pad_h < height and pad_w < width else "replicate"
             padded = F.pad(X, padding, mode=padding_mode)
-        E_d, E_g = self.degradation_prior(padded)
+        # Keep D's input identical to DR training/extraction; only the backbone
+        # needs dimensions divisible by eight.
+        E = self.degradation_prior.compute_dr(X)
+        E_d, E_g = self.degradation_prior.compute_distribution(E)
         
         routing = OrderedDict() if return_aux else None
         stage_shapes = OrderedDict() if return_aux else None
@@ -280,7 +283,7 @@ class UniRestorerPP(nn.Module):
         restored = (base.output(refined) + padded)[..., :height, :width]
         if return_aux:
             return restored, {
-                "E_d": E_d, "E_g": E_g, "routing": routing,
+                "E": E, "E_d": E_d, "E_g": E_g, "routing": routing,
                 "stage_shapes": stage_shapes, "input_size": (height, width),
                 "padded_size": tuple(padded.shape[-2:]), "padding": padding,
                 "padding_mode": padding_mode,

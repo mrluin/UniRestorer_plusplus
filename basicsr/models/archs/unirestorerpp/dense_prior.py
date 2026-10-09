@@ -10,7 +10,7 @@ from .core import DensePriorRouter, HierarchyIndex
 class DenseResNet18Encoder(nn.Module):
     """ResNet18 trunk at stride 8, followed by a linear 512-to-p projection."""
 
-    def __init__(self, p: int = 256, output_stride: int = 8) -> None:
+    def __init__(self, p: int = 512, output_stride: int = 8) -> None:
         super().__init__()
         self.p = int(p)
         self.output_stride = int(output_stride)
@@ -42,7 +42,7 @@ class DenseDegradationPrior(nn.Module):
     """Predict dense mean and variance, with optional freezing of D."""
 
     def __init__(
-        self, p: int = 256, variance_floor: float = 0.01,
+        self, p: int = 512, variance_floor: float = 0.01,
         variance_init: float = 1.0, freeze_dr: bool = True,
         output_stride: int = 8,
     ) -> None:
@@ -111,7 +111,7 @@ class PointwiseRouterBranch(nn.Module):
 def build_dense_prior_router(
     feature_channels: int, 
     hierarchy: HierarchyIndex, 
-    p: int = 256,
+    p: int = 512,
     hidden_channels: int = 256, 
     router_noise: bool = True,
 ) -> DensePriorRouter:
