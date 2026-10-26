@@ -1,3 +1,5 @@
+"""Unified entries: legacy/explicit LoRA and once-routed full-model experts."""
+
 from collections.abc import Mapping
 
 from basicsr.utils.registry import ARCH_REGISTRY
@@ -5,12 +7,25 @@ from basicsr.utils.registry import ARCH_REGISTRY
 from .unirestorerpp.core import DensePriorRouter, HierarchyIndex, RegionAwareExpertBlock
 from .unirestorerpp.restormer_expert import RegionAwareLoRARestormerBlock
 from .unirestorerpp.network import UniRestorerPP
+from .unirestorerpp.full_expert_network import UniRestorerPPFullModel
 
 
-__all__ = ["UniRestorerPP", "UniRestorerPPBlock", "UniRestorerPPRestormerBlock"]
+__all__ = [
+    "UniRestorerPP", "UniRestorerPPLoRA", "UniRestorerPPFullModel",
+    "UniRestorerPPBlock", "UniRestorerPPRestormerBlock",
+]
 
 
 ARCH_REGISTRY.register()(UniRestorerPP)
+ARCH_REGISTRY.register()(UniRestorerPPFullModel)
+
+
+@ARCH_REGISTRY.register()
+class UniRestorerPPLoRA(UniRestorerPP):
+    """Explicit LoRA entry; inherits the original constructor, forward and keys.
+
+    UniRestorerPP remains registered for existing configurations/checkpoints.
+    """
 
 
 def _build_component(component):
